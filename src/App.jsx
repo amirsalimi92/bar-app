@@ -53,17 +53,17 @@ const LANG = {
 /* ── Color palettes (dark / light) ──────────────────────────────────────────── */
 const PAL = {
   dark:{
-    appBg:"#07090E", hBg:"#0F1520", hBdr:"#151D2B",
-    surf:"#0C1320", surfAlt:"#080B10",
-    bdr:"#141D2B", bdrMid:"#1E2A3A", bdrFaint:"#0F1A26",
-    txt:"#E8DDD0", txtSub:"#8A9BB0", txtMut:"#4A5A6C", txtFaint:"#1C2535",
-    gold:"#D4A853", goldDk:"#B8860B", goldBg:"#1A1408", goldBdr:"#221A06",
-    inp:"#080B10", inpBdr:"#243040",
-    okBg:"#091A0C", okBdr:"#132418", okTxt:"#3A9A5C",
-    infoBg:"#09142A", infoBdr:"#141E30", infoTxt:"#5A8FD0",
-    danger:"#8B1A1A", dangerTxt:"#FFB0B0",
-    progBg:"#141C28", mBg:"rgba(0,0,0,.85)", mCard:"#0F1520",
-    navBg:"#0A0D14", tabBg:"#141C28",
+    appBg:"#111722", hBg:"#1A2236", hBdr:"#253047",
+    surf:"#1C2840", surfAlt:"#162032",
+    bdr:"#253047", bdrMid:"#2E3D55", bdrFaint:"#1E2D42",
+    txt:"#F2EAE0", txtSub:"#A0B4C8", txtMut:"#6A80A0", txtFaint:"#334055",
+    gold:"#D4A853", goldDk:"#B8860B", goldBg:"#221A08", goldBdr:"#2E2208",
+    inp:"#141E30", inpBdr:"#2E4060",
+    okBg:"#0F2818", okBdr:"#1A4828", okTxt:"#4AB870",
+    infoBg:"#101E3A", infoBdr:"#1A3060", infoTxt:"#70A8E0",
+    danger:"#A02020", dangerTxt:"#FFB0B0",
+    progBg:"#1E2A3C", mBg:"rgba(0,0,0,.80)", mCard:"#1A2236",
+    navBg:"#141E30", tabBg:"#1E2A3C",
   },
   light:{
     appBg:"#F0F3F8", hBg:"#FFFFFF", hBdr:"#DDE5EF",
@@ -228,10 +228,14 @@ const DEFAULT_INVENTORY = [
       sh("r1b","Unten",[]),
     ]),
     un("r2","Kühlschrank 2","fridge",[
-      sh("r2m","Inhalt",[
+      sh("r2t","Oben",[
         it("r2_bian",  "Bianco",      14, GL),
         it("r2_secco", "Secco",       14, GL),
         it("r2_char",  "Chardonnay",   7, GL),
+      ]),
+      sh("r2b","Unten",[
+        it("r2b_happy","Happy Horas",  5, GL),
+        it("r2b_lug",  "Lugano",       3, GL),
       ]),
     ]),
     un("r3","Kühlschrank 3","fridge",[
@@ -373,6 +377,7 @@ export default function BarApp() {
   const [showReset, setShowReset] = useState(false);
   const [showSett,  setShowSett]  = useState(false);
   const [toast,     setToast]     = useState(null);
+  const [doneIds,   setDoneIds]   = useState(new Set()); // report done-items — lives at App level to survive tab switches
   const [exportModal, setExportModal] = useState(null); // { name, json }
   const [shareModal,  setShareModal]  = useState(null); // report text string
   const fileRef = useRef(null);
@@ -413,7 +418,7 @@ export default function BarApp() {
     }))
   })));
 
-  const handleReset = ()=>{ patchP(activePid,"currentQty",{}); setShowReset(false); setOpenUid(null); };
+  const handleReset = ()=>{ patchP(activePid,"currentQty",{}); setDoneIds(new Set()); setShowReset(false); setOpenUid(null); };
 
   const exportProfile = pid=>{
     const p=profiles[pid];
@@ -448,7 +453,11 @@ export default function BarApp() {
   const addItm   =(uid_,sid)=>{ const i={id:uid(),name:"Neuer Artikel",defaultQty:10,storageHint:""}; patchInv(inventory.map(z=>({...z,units:z.units.map(u=>u.id!==uid_?u:{...u,sections:u.sections.map(s=>s.id!==sid?s:{...s,items:[...s.items,i]})})})));};
   const remItm   =(uid_,sid,iid)=>{ patchInv(inventory.map(z=>({...z,units:z.units.map(u=>u.id!==uid_?u:{...u,sections:u.sections.map(s=>s.id!==sid?s:{...s,items:s.items.filter(i=>i.id!==iid)})})})));const q={...currentQty};delete q[iid];patchP(activePid,"currentQty",q); };
 
-  const reportItems = ()=>flatItems(inventory).map(i=>{ const c=parseInt(currentQty[i.id]??""); return{...i,needed:isNaN(c)?i.defaultQty:Math.max(0,i.defaultQty-c)}; }).filter(i=>i.needed>0);
+  // Only show items that have been entered AND still need restocking
+  const reportItems = ()=>flatItems(inventory)
+    .filter(i => currentQty[i.id] !== undefined && currentQty[i.id] !== "")
+    .map(i=>{ const c=parseInt(currentQty[i.id]); return{...i,needed:Math.max(0,i.defaultQty-c)}; })
+    .filter(i=>i.needed>0);
 
   const allItems = flatItems(inventory);
   const filled   = allItems.filter(i=>currentQty[i.id]!==undefined&&currentQty[i.id]!=="").length;
@@ -512,7 +521,7 @@ export default function BarApp() {
         <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
           {tab==="bar"&&!selZone&&<HomeScreen T={T} C={C} themeMode={themeMode} inventory={inventory} currentQty={currentQty} onZoneClick={id=>{setZoneId(id);setOpenUid(null);}}/>}
           {tab==="bar"&&selZone&&<ZoneScreen T={T} C={C} themeMode={themeMode} zone={selZone} currentQty={currentQty} openUid={openUid} onUnitClick={id=>setOpenUid(p=>p===id?null:id)} onSetQty={setQty} onSaveDefault={saveDefault} onBack={()=>{setZoneId(null);setOpenUid(null);}}/>}
-          {tab==="report"&&<ReportView T={T} C={C} reportItems={report} onUpdateHint={updateHint}/>}
+          {tab==="report"&&<ReportView T={T} C={C} reportItems={report} onUpdateHint={updateHint} onGoToBar={()=>switchTab("bar")} doneIds={doneIds} setDoneIds={setDoneIds}/>}
           {tab==="profiles"&&<ProfilesView T={T} C={C} themeMode={themeMode} profiles={pList} activePid={activePid} onExport={exportProfile} onImport={()=>fileRef.current?.click()} onDelete={pid=>{const n={...profiles};delete n[pid];setProfiles(n);if(activePid===pid)setActivePid("default");}} onRename={(pid,name)=>setProfiles(p=>({...p,[pid]:{...p[pid],name}}))} onActivate={id=>{setActivePid(id);setZoneId(null);setOpenUid(null);}}/>}
           {tab==="edit"&&<EditView T={T} C={C} inventory={inventory} onAddShelf={addShelf} onRemShelf={remShelf} onUpdShelf={updShelf} onAddItm={addItm} onRemItm={remItm} onUpdItm={(uid_,sid,iid,p)=>patchItem(uid_,sid,iid,p)}/>}
         </div>
@@ -798,69 +807,143 @@ function UnitPanel({T,C,th,unit,currentQty,onSetQty,onSaveDefault,onClose}) {
 }
 
 /* ═══════════════════════ REPORT VIEW ═══════════════════════════════════════ */
-function ReportView({T,C,reportItems,onUpdateHint}) {
+function ReportView({T,C,reportItems,onUpdateHint,onGoToBar,doneIds,setDoneIds}) {
   const [openId,  setOpenId]  = useState(null);
   const [editId,  setEditId]  = useState(null);
   const [draft,   setDraft]   = useState("");
-  const text = reportItems.map(i=>`${i.needed}x  ${i.name}`).join("\n");
+
+  const setSwitchToBar = () => onGoToBar();
+
+  const toggleDone = (id, e) => {
+    e.stopPropagation();
+    setDoneIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+    // Close hint panel when marking done
+    setOpenId(p => p === id ? null : p);
+  };
+
+  // Sort: pending items first, done items at bottom
+  const sorted = [...reportItems].sort((a,b) => {
+    const da = doneIds.has(a.id), db = doneIds.has(b.id);
+    return da === db ? 0 : da ? 1 : -1;
+  });
+
+  const pendingCount = sorted.filter(i => !doneIds.has(i.id)).length;
+  const text = sorted.map(i=>`${i.needed}x  ${i.name}`).join("\n");
+
   return (
-    <div style={{flex:1,padding:"18px 15px 28px",overflowY:"auto",backgroundColor:C.appBg}}>
+    <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",backgroundColor:C.appBg}}>
+
       {reportItems.length===0?(
-        <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"60vh",gap:12}}>
+        <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12}}>
           <div style={{width:60,height:60,borderRadius:"50%",backgroundColor:C.okBg,border:`1px solid ${C.okBdr}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>✓</div>
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:C.okTxt}}>{T.reportEmpty}</div>
           <div style={{fontSize:12,color:C.txtMut}}>{T.reportEmptySub}</div>
         </div>
       ):(
         <>
-          <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:C.gold,marginBottom:4}}>{T.reportTitle}</div>
-          <div style={{fontSize:11,color:C.txtMut,marginBottom:16}}>{reportItems.length} {T.reportCount}</div>
-          <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:20}}>
-            {reportItems.map((itm,i)=>{ const isOpen=openId===itm.id; const isEditing=editId===itm.id; const hasHint=itm.storageHint&&itm.storageHint.trim()!==""; return(
-              <div key={itm.id} style={{animation:`fadeUp .16s ease ${i*.04}s both`}}>
-                <div onClick={()=>{setOpenId(p=>p===itm.id?null:itm.id);setEditId(null);}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"11px 13px",backgroundColor:isOpen?C.surfAlt:C.surf,borderRadius:isOpen?"11px 11px 0 0":11,border:`1px solid ${isOpen?C.bdrMid:C.bdr}`,borderBottom:isOpen?"none":undefined,cursor:"pointer",userSelect:"none",transition:"background .2s"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:7}}>
-                    <span style={{fontSize:10,color:C.txtMut,display:"inline-block",transition:"transform .2s",transform:isOpen?"rotate(180deg)":"rotate(0deg)"}}>▼</span>
-                    <span style={{fontSize:14,color:C.txt}}>{itm.name}</span>
-                  </div>
-                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.gold,backgroundColor:C.goldBg,border:`1px solid ${C.goldBdr}`,padding:"2px 12px",borderRadius:7,minWidth:46,textAlign:"center"}}>{itm.needed}</div>
-                </div>
-                {isOpen&&(
-                  <div style={{padding:"11px 13px 13px",backgroundColor:C.surfAlt,border:`1px solid ${C.bdrMid}`,borderTop:"none",borderRadius:"0 0 11px 11px",animation:"slideDown .17s cubic-bezier(.4,0,.2,1)"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
-                      <div style={{fontSize:10,color:C.txtMut,textTransform:"uppercase",letterSpacing:.7}}>📍 {T.storageHint}</div>
-                      {!isEditing&&<button onClick={e=>{e.stopPropagation();setEditId(itm.id);setDraft(itm.storageHint||"");}} style={{background:"none",border:"none",color:C.txtMut,cursor:"pointer",fontSize:11}}>✏</button>}
-                    </div>
-                    {isEditing?(
-                      <div onClick={e=>e.stopPropagation()}>
-                        <input value={draft} onChange={e=>setDraft(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){onUpdateHint(itm.id,draft.trim());setEditId(null);}}} placeholder={T.storageHintPlaceholder} style={{width:"100%",padding:"7px 10px",borderRadius:7,border:`1px solid ${C.gold}`,backgroundColor:C.inp,color:C.txt,fontSize:12,fontFamily:"'DM Sans',sans-serif",marginBottom:7}} autoFocus/>
-                        <div style={{display:"flex",gap:6}}>
-                          <button onClick={()=>{onUpdateHint(itm.id,draft.trim());setEditId(null);}} style={{flex:1,padding:7,borderRadius:7,border:"none",backgroundColor:C.okBg,color:C.okTxt,cursor:"pointer",fontSize:12,fontWeight:700}}>✓ Save</button>
-                          <button onClick={()=>setEditId(null)} style={{padding:"7px 11px",borderRadius:7,border:`1px solid ${C.bdrMid}`,backgroundColor:"transparent",color:C.txtMut,cursor:"pointer",fontSize:12}}>✕</button>
-                        </div>
+          {/* Fixed header with Back + Share buttons */}
+          <div style={{padding:"14px 15px 10px",flexShrink:0,borderBottom:`1px solid ${C.bdr}`}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:C.gold}}>{T.reportTitle}</div>
+              <div style={{display:"flex",gap:7}}>
+                {/* Back to Bar */}
+                <button onClick={()=>setSwitchToBar(true)}
+                  style={{padding:"6px 12px",borderRadius:10,border:`1px solid ${C.bdrMid}`,backgroundColor:C.surfAlt,color:C.txtSub,cursor:"pointer",fontSize:12,fontWeight:600}}>
+                  🏠 {T.tabBar}
+                </button>
+                {/* Share */}
+                <button onClick={async ()=>{
+                  const shareText=`${T.reportTitle}\n${"─".repeat(28)}\n${text}\n${"─".repeat(28)}`;
+                  if(navigator.share){try{await navigator.share({title:T.reportTitle,text:shareText});return;}catch(e){if(e.name==="AbortError")return;}}
+                  setShareModal(shareText);
+                }} style={{padding:"6px 12px",borderRadius:10,border:"none",background:`linear-gradient(135deg,${C.goldDk},${C.gold}bb)`,color:"#0C0800",cursor:"pointer",fontSize:12,fontWeight:700}}>
+                  📤
+                </button>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:10,alignItems:"center"}}>
+              <span style={{fontSize:11,color:C.txtMut}}>{pendingCount} {T.reportCount}</span>
+              {doneIds.size>0&&<span style={{fontSize:11,color:C.okTxt}}>· {doneIds.size} ✓</span>}
+            </div>
+          </div>
+
+          {/* Scrollable list — takes remaining space */}
+          <div style={{flex:1,overflowY:"auto",padding:"0 15px",paddingBottom:8}}>
+            <div style={{display:"flex",flexDirection:"column",gap:7}}>
+              {sorted.map((itm,i)=>{
+                const isOpen   = openId===itm.id;
+                const isEditing= editId===itm.id;
+                const isDone   = doneIds.has(itm.id);
+                const hasHint  = itm.storageHint&&itm.storageHint.trim()!=="";
+                return(
+                  <div key={itm.id} style={{opacity:isDone?.5:1,transition:"opacity .3s",animation:`fadeUp .16s ease ${Math.min(i,.15)*100}ms both`}}>
+                    {/* Main row */}
+                    <div onClick={()=>{if(!isDone){setOpenId(p=>p===itm.id?null:itm.id);setEditId(null);}}}
+                      style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 12px",
+                        backgroundColor:isDone?C.okBg:isOpen?C.surfAlt:C.surf,
+                        borderRadius:isOpen&&!isDone?"11px 11px 0 0":11,
+                        border:`1px solid ${isDone?C.okBdr:isOpen?C.bdrMid:C.bdr}`,
+                        borderBottom:isOpen&&!isDone?"none":undefined,
+                        cursor:isDone?"default":"pointer",userSelect:"none",transition:"all .25s"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:7,flex:1,minWidth:0}}>
+                        {!isDone&&<span style={{fontSize:9,color:C.txtMut,flexShrink:0,transition:"transform .2s",transform:isOpen?"rotate(180deg)":"rotate(0deg)"}}>▼</span>}
+                        {isDone&&<span style={{fontSize:13,color:C.okTxt,flexShrink:0}}>✓</span>}
+                        <span style={{fontSize:14,color:isDone?C.okTxt:C.txt,textDecoration:isDone?"line-through":"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{itm.name}</span>
                       </div>
-                    ):(
-                      <div style={{padding:"7px 10px",borderRadius:7,backgroundColor:hasHint?C.infoBg:C.surf,border:`1px solid ${hasHint?C.infoBdr:C.bdr}`,color:hasHint?C.infoTxt:C.txtMut,fontSize:12,fontStyle:hasHint?"normal":"italic"}}>
-                        {hasHint?itm.storageHint:T.noHint}
+                      <div style={{display:"flex",alignItems:"center",gap:7,flexShrink:0}}>
+                        {/* Quantity badge */}
+                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,
+                          color:isDone?C.okTxt:C.gold,
+                          backgroundColor:isDone?C.okBg:C.goldBg,
+                          border:`1px solid ${isDone?C.okBdr:C.goldBdr}`,
+                          padding:"2px 11px",borderRadius:7,minWidth:40,textAlign:"center",transition:"all .25s"}}>
+                          {itm.needed}
+                        </div>
+                        {/* Done toggle button */}
+                        <button onClick={e=>toggleDone(itm.id,e)}
+                          title={isDone?"Mark as pending":"Mark as collected"}
+                          style={{width:30,height:30,borderRadius:8,border:`1px solid ${isDone?C.okBdr:C.bdrMid}`,
+                            backgroundColor:isDone?C.okBg:C.surfAlt,
+                            color:isDone?C.okTxt:C.txtMut,
+                            cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",
+                            flexShrink:0,transition:"all .2s"}}>
+                          {isDone?"↩":"✓"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Location hint panel */}
+                    {isOpen&&!isDone&&(
+                      <div style={{padding:"10px 12px 12px",backgroundColor:C.surfAlt,border:`1px solid ${C.bdrMid}`,borderTop:"none",borderRadius:"0 0 11px 11px",animation:"slideDown .17s cubic-bezier(.4,0,.2,1)"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
+                          <div style={{fontSize:10,color:C.txtMut,textTransform:"uppercase",letterSpacing:.7}}>📍 {T.storageHint}</div>
+                          {!isEditing&&<button onClick={e=>{e.stopPropagation();setEditId(itm.id);setDraft(itm.storageHint||"");}} style={{background:"none",border:"none",color:C.txtMut,cursor:"pointer",fontSize:11}}>✏</button>}
+                        </div>
+                        {isEditing?(
+                          <div onClick={e=>e.stopPropagation()}>
+                            <input value={draft} onChange={e=>setDraft(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){onUpdateHint(itm.id,draft.trim());setEditId(null);}}} placeholder={T.storageHintPlaceholder} style={{width:"100%",padding:"7px 10px",borderRadius:7,border:`1px solid ${C.gold}`,backgroundColor:C.inp,color:C.txt,fontSize:12,fontFamily:"'DM Sans',sans-serif",marginBottom:7}} autoFocus/>
+                            <div style={{display:"flex",gap:6}}>
+                              <button onClick={()=>{onUpdateHint(itm.id,draft.trim());setEditId(null);}} style={{flex:1,padding:7,borderRadius:7,border:"none",backgroundColor:C.okBg,color:C.okTxt,cursor:"pointer",fontSize:12,fontWeight:700}}>✓ Save</button>
+                              <button onClick={()=>setEditId(null)} style={{padding:"7px 11px",borderRadius:7,border:`1px solid ${C.bdrMid}`,backgroundColor:"transparent",color:C.txtMut,cursor:"pointer",fontSize:12}}>✕</button>
+                            </div>
+                          </div>
+                        ):(
+                          <div style={{padding:"7px 10px",borderRadius:7,backgroundColor:hasHint?C.infoBg:C.surf,border:`1px solid ${hasHint?C.infoBdr:C.bdr}`,color:hasHint?C.infoTxt:C.txtMut,fontSize:12,fontStyle:hasHint?"normal":"italic"}}>
+                            {hasHint?itm.storageHint:T.noHint}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                )}
-              </div>
-            );})}
+                );
+              })}
+            </div>
           </div>
-          <button onClick={async ()=>{
-            const shareText = `${T.reportTitle}\n${"─".repeat(28)}\n${text}\n${"─".repeat(28)}`;
-            // Try Web Share API first (works on real mobile browsers)
-            if (navigator.share) {
-              try { await navigator.share({ title: T.reportTitle, text: shareText }); return; }
-              catch(e) { if (e.name==="AbortError") return; }
-            }
-            // Always-reliable fallback: in-app modal
-            setShareModal(shareText);
-          }} style={{width:"100%",padding:13,borderRadius:13,border:"none",background:`linear-gradient(135deg,${C.goldDk},${C.gold}bb)`,color:C.appBg,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",boxShadow:`0 4px 16px ${C.gold}30`}}>
-            📤 {T.shareReport}
-          </button>
+
         </>
       )}
     </div>
