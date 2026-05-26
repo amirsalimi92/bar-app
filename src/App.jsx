@@ -542,7 +542,7 @@ export default function BarApp() {
           <Modal C={C} onClose={()=>setShowSett(false)}>
             <div style={{fontSize:26,marginBottom:8}}>⚙️</div>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,color:C.gold,marginBottom:16}}>{T.settings}</div>
-            <div style={{marginBottom:6}}>
+            <div style={{marginBottom:16}}>
               <div style={{fontSize:11,color:C.txtMut,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>{T.themeLabel}</div>
               <div style={{display:"flex",gap:8}}>
                 {["dark","light"].map(m=>(
@@ -552,7 +552,33 @@ export default function BarApp() {
                 ))}
               </div>
             </div>
-            <button onClick={()=>setShowSett(false)} style={{...cancelBtn,marginTop:14}}>{T.cancel}</button>
+
+            {/* App info */}
+            <div style={{borderTop:`1px solid ${C.bdr}`,paddingTop:14,marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                <span style={{fontSize:11,color:C.txtMut}}>Version</span>
+                <span style={{fontSize:11,color:C.txtSub,fontWeight:600}}>1.5.0</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:11,color:C.txtMut}}>Last update</span>
+                <span style={{fontSize:11,color:C.txtSub}}>26.05.2026</span>
+              </div>
+            </div>
+
+            {/* Credit */}
+            <div style={{borderTop:`1px solid ${C.bdr}`,paddingTop:12,marginBottom:12,textAlign:"center"}}>
+              <div style={{fontSize:11,color:C.txtMut,marginBottom:5}}>
+                Designed by Amir Salimi
+              </div>
+              <a href="https://github.com/amirsalimi92" target="_blank" rel="noreferrer"
+                style={{fontSize:11,color:C.infoTxt,textDecoration:"none",display:"inline-flex",alignItems:"center",gap:4}}>
+                <span>🐙</span> github.com/amirsalimi92
+              </a>
+            </div>
+
+            <button onClick={()=>setShowSett(false)} style={{width:"100%",padding:9,borderRadius:10,border:`1px solid ${C.bdrMid}`,backgroundColor:"transparent",color:C.txtMut,cursor:"pointer",fontSize:12}}>
+              {T.cancel}
+            </button>
           </Modal>
         )}
 
